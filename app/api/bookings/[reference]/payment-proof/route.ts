@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notifyPaymentSubmitted } from "@/lib/notifications";
 import { serviceClient } from "@/lib/supabase";
 
 const types = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
@@ -18,6 +19,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { error: uploadError } = await db.storage.from("payment-proofs").upload(path, file, { contentType: file.type });
   if (uploadError) return NextResponse.json({ error: "Could not upload receipt" }, { status: 500 });
   const { error } = await db.from("payments").upsert({ booking_id: booking.id, amount: booking.total_amount, receipt_url: path, status: "SUBMITTED", rejection_reason: null, submitted_at: new Date().toISOString() }, { onConflict: "booking_id" });
-  if (!error) await db.from("bookings").update({ status: "PAYMENT_REVIEW", updated_at: new Date().toISOString() }).eq("id", booking.id).eq("status", "AWAITING_PAYMENT");
-  return error ? NextResponse.json({ error: "Could not save receipt" }, { status: 500 }) : NextResponse.json({ ok: true });
+  if (error) return NextResponse.json({ error: "Could not save receipt" }, { status: 500 });
+  const { error: updateError } = await db.from("bookings").update({ status: "PAYMENT_REVIEW", updated_at: new Date().toISOString() }).eq("id", booking.id).eq("status", "AWAITING_PAYMENT");
+  if (updateError) return NextResponse.json({ error: "Could not update booking" }, { status: 500 });
+  const { data: submitted } = await db.from("bookings").select("id,booking_reference,booking_date,start_time,end_time,duration_minutes,total_amount,customers(name,phone)").eq("id", booking.id).maybeSingle();
+  if (submitted) {
+    try {
+      await notifyPaymentSubmitted(submitted, request);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+  return NextResponse.json({ ok: true });
 }

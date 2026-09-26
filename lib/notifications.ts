@@ -23,17 +23,32 @@ function siteUrlFrom(request: Request) {
   return host ? `${proto}://${host}` : "";
 }
 
-export async function notifyBookingCreated(booking: BookingNotification, request: Request) {
+async function sendTelegramMessage(text: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) return;
 
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      disable_web_page_preview: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(`Telegram notification failed: ${response.status} ${message}`);
+  }
+}
+
+function bookingLines(booking: BookingNotification, request: Request) {
   const customer = customerFrom(booking);
   const adminUrl = `${siteUrlFrom(request)}/admin/bookings/${booking.id}`;
   const whatsappUrl = customer?.phone ? `https://wa.me/${customer.phone}` : "";
-  const lines = [
-    "New mahjong booking",
-    "",
+  return [
     `Reference: ${booking.booking_reference}`,
     `Customer: ${customer?.name ?? "Unknown"}`,
     `WhatsApp: ${customer?.phone ?? "-"}`,
@@ -44,20 +59,13 @@ export async function notifyBookingCreated(booking: BookingNotification, request
     "",
     adminUrl ? `Admin: ${adminUrl}` : "",
     whatsappUrl ? `WhatsApp: ${whatsappUrl}` : "",
-  ].filter(Boolean).join("\n");
+  ].filter(Boolean);
+}
 
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: lines,
-      disable_web_page_preview: true,
-    }),
-  });
+export async function notifyBookingCreated(booking: BookingNotification, request: Request) {
+  await sendTelegramMessage(["New mahjong booking", "", ...bookingLines(booking, request)].join("\n"));
+}
 
-  if (!response.ok) {
-    const message = await response.text().catch(() => "");
-    throw new Error(`Telegram notification failed: ${response.status} ${message}`);
-  }
+export async function notifyPaymentSubmitted(booking: BookingNotification, request: Request) {
+  await sendTelegramMessage(["Payment proof uploaded", "", ...bookingLines(booking, request)].join("\n"));
 }
