@@ -11,6 +11,20 @@ A mobile-first booking MVP built as one full-stack Next.js app with Supabase for
 
 The service-role key is server-only. Never prefix it with `NEXT_PUBLIC_`.
 
+## Booking notifications
+
+To receive a Telegram message whenever someone books:
+
+1. In Telegram, message `@BotFather`, create a bot, and copy the bot token.
+2. Message your new bot once.
+3. Visit `https://api.telegram.org/botYOUR_TOKEN/getUpdates` and copy your `chat.id`.
+4. Add these environment variables locally and in Vercel:
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_CHAT_ID`
+   - `NEXT_PUBLIC_SITE_URL` with your deployed site URL
+
+If the Telegram variables are missing, booking still works without notifications.
+
 ## Routes
 
 - `/book` — customer booking flow

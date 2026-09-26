@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bookingReference, isPastSlot, normalizePhone, validateRange } from "@/lib/booking";
+import { notifyBookingCreated } from "@/lib/notifications";
 import { serviceClient } from "@/lib/supabase";
 
 export async function POST(request: NextRequest) {
@@ -29,5 +30,7 @@ export async function POST(request: NextRequest) {
     const past = /past time/i.test(error.message);
     return NextResponse.json({ error: conflict ? "That time was just taken. Please choose another." : past ? "That start time has already passed. Please choose a later time." : "Could not create your booking" }, { status: conflict ? 409 : 400 });
   }
+  const { data: booking } = await db.from("bookings").select("id,booking_reference,booking_date,start_time,end_time,duration_minutes,total_amount,customers(name,phone)").eq("booking_reference", reference).maybeSingle();
+  if (booking) notifyBookingCreated(booking, request).catch(error => console.error(error));
   return NextResponse.json({ booking_reference: reference }, { status: 201 });
 }
