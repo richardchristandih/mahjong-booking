@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/maintenance/payment-proofs",
+      "schedule": "0 20 * * *"
+    }
+  ]
+}

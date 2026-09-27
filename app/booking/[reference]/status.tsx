@@ -116,6 +116,7 @@ export default function BookingStatus({ reference }: { reference: string }) {
   const [remaining, setRemaining] = useState<number>();
   const [error, setError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
+  const [uploading, setUploading] = useState(false);
   const load = useCallback(() => fetch(`/api/bookings/${reference}`).then(async r => { const body = await r.json(); if (!r.ok) throw new Error(body.error); setBooking(body); setRemaining(body.payment_due_at ? Math.max(0, Math.ceil((new Date(body.payment_due_at).getTime() - Date.now()) / 1000)) : undefined); }).catch(e => setError(e.message)), [reference]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -139,11 +140,23 @@ export default function BookingStatus({ reference }: { reference: string }) {
     return () => clearInterval(timer);
   }, [booking?.payment_due_at, booking?.status, load]);
   async function upload(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError("");
-    const response = await fetch(`/api/bookings/${reference}/payment-proof`, { method: "POST", body: new FormData(event.currentTarget) });
-    const body = await response.json();
-    if (!response.ok) return setError(body.error);
-    load();
+    event.preventDefault(); setError(""); setUploading(true);
+    const form = event.currentTarget;
+
+    try {
+      const response = await fetch(`/api/bookings/${reference}/payment-proof`, { method: "POST", body: new FormData(form) });
+      const body = await response.json();
+      if (!response.ok) {
+        setError(body.error);
+        return;
+      }
+      await load();
+      form.reset();
+    } catch {
+      setError("Could not upload receipt. Please check your connection and try again.");
+    } finally {
+      setUploading(false);
+    }
   }
   async function copyLink() {
     const link = window.location.href;
@@ -179,7 +192,7 @@ export default function BookingStatus({ reference }: { reference: string }) {
       </div>
       {saveMessage && <div className="notice success">{saveMessage}</div>}
     </div>
-    {booking.status === "AWAITING_PAYMENT" && <div><div className="divider" /><h2 style={{ textAlign: "center" }}>Pay with QRIS</h2>{remaining !== undefined && <p className="payment-timer">Upload within {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</p>}{booking.settings.qris_image_url ? <img className="qris" src={booking.settings.qris_image_url} width="910" height="1280" alt={`QRIS for ${booking.settings.qris_account_name ?? booking.settings.venue_name}`} /> : <div className="notice">The venue is preparing the QRIS image. Please contact them below.</div>}<p style={{ textAlign: "center", color: "var(--muted)" }}>{booking.settings.payment_instructions}</p><form className="upload" onSubmit={upload}><p><strong>Upload payment proof</strong><br/><small>JPG, PNG, WebP, or PDF · max 5 MB</small></p><input required name="receipt" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" /><br/><br/><button className="button">Submit payment</button></form></div>}
+    {booking.status === "AWAITING_PAYMENT" && <div><div className="divider" /><h2 style={{ textAlign: "center" }}>Pay with QRIS</h2>{remaining !== undefined && <p className="payment-timer">Upload within {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</p>}{booking.settings.qris_image_url ? <img className="qris" src={booking.settings.qris_image_url} width="910" height="1280" alt={`QRIS for ${booking.settings.qris_account_name ?? booking.settings.venue_name}`} /> : <div className="notice">The venue is preparing the QRIS image. Please contact them below.</div>}<p style={{ textAlign: "center", color: "var(--muted)" }}>{booking.settings.payment_instructions}</p><form className="upload" onSubmit={upload} aria-busy={uploading}><p><strong>{uploading ? "Uploading payment proof..." : "Upload payment proof"}</strong><br/><small>JPG, PNG, WebP, or PDF · max 5 MB</small></p><input required disabled={uploading} name="receipt" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" /><br/><br/><button className="button" disabled={uploading}>{uploading ? "Uploading..." : "Submit payment"}</button>{uploading && <div className="upload-status">Please keep this page open while we upload your receipt.</div>}</form></div>}
     {booking.payment_rejection_reason && <div className="notice">Payment issue: {booking.payment_rejection_reason}</div>}
     {error && <div className="notice">{error}</div>}
     {phone && <div className="action-row" style={{ marginTop: 20 }}><a className="button secondary" target="_blank" rel="noreferrer" href={`https://wa.me/${phone}?text=${encodeURIComponent(`Hello, this is about booking ${booking.booking_reference}.`)}`}>Contact via WhatsApp</a></div>}

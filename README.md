@@ -25,6 +25,10 @@ To receive a Telegram message whenever someone books:
 
 If the Telegram variables are missing, booking still works without notifications.
 
+## Payment proof cleanup
+
+Payment proof files are deleted automatically 7 days after they are reviewed as confirmed or rejected. On Vercel, `vercel.json` schedules `/api/maintenance/payment-proofs` once per day. Add a `CRON_SECRET` environment variable in production so only the scheduler can call it.
+
 ## Routes
 
 - `/book` — customer booking flow

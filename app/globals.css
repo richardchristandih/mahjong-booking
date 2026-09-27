@@ -109,6 +109,8 @@ label.field { min-width: 0; display: grid; gap: 7px; color: var(--ink); font-siz
 .payment-timer { width: fit-content; margin: 12px auto; padding: 7px 12px; border-radius: 999px; background: var(--orange); color: #835d10; font-weight: 800; font-size: 13px; }
 .upload { border: 2px dashed #b8c2bc; border-radius: 14px; padding: 24px; text-align: center; margin-top: 20px; }
 .upload input { max-width: 100%; }
+.upload[aria-busy="true"] { background: #f7f4ed; border-color: var(--gold); }
+.upload-status { margin-top: 14px; color: var(--muted); font-size: 13px; }
 .action-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .save-panel { margin: 22px 0; padding: 20px; border-radius: 14px; background: #f7f4ed; border: 1px solid var(--line); display: grid; gap: 16px; }
 .save-panel h2 { font-size: 24px; }
